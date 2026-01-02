@@ -22,6 +22,20 @@ class TenantMiddleware(MiddlewareMixin):
         # Format: school_slug.domain.com or localhost
         parts = host.split('.')
         
+        # First, try to get tenant from query param or header (works for all environments)
+        tenant_id = request.GET.get('tenant_id') or request.headers.get('X-Tenant-ID')
+        
+        if tenant_id:
+            # Tenant ID provided directly
+            try:
+                tenant = Tenant.objects.get(id=tenant_id, is_active=True)
+                request.tenant = tenant
+                request.tenant_id = tenant.id
+                return
+            except Tenant.DoesNotExist:
+                pass
+        
+        # Fallback: Try to extract tenant from subdomain
         if len(parts) >= 2 and parts[0] not in ['www', 'localhost', '127']:
             # It's a subdomain (e.g., school1.domain.com)
             tenant_slug = parts[0]
@@ -29,23 +43,13 @@ class TenantMiddleware(MiddlewareMixin):
                 tenant = Tenant.objects.get(slug=tenant_slug, is_active=True)
                 request.tenant = tenant
                 request.tenant_id = tenant.id
+                return
             except Tenant.DoesNotExist:
-                request.tenant = None
-                request.tenant_id = None
-        else:
-            # For development (localhost), try to get tenant from query param or header
-            tenant_id = request.GET.get('tenant_id') or request.headers.get('X-Tenant-ID')
-            if tenant_id:
-                try:
-                    tenant = Tenant.objects.get(id=tenant_id, is_active=True)
-                    request.tenant = tenant
-                    request.tenant_id = tenant.id
-                except Tenant.DoesNotExist:
-                    request.tenant = None
-                    request.tenant_id = None
-            else:
-                request.tenant = None
-                request.tenant_id = None
+                pass
+        
+        # No tenant found
+        request.tenant = None
+        request.tenant_id = None
     
     def process_response(self, request, response):
         return response
