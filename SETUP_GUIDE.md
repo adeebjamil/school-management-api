@@ -276,3 +276,14 @@ The system is ready for:
 2. Migration execution
 3. API testing
 4. Frontend development
+
+
+
+
+
+
+
+
+
+$env:DATABASE_URL = "your-render-database-url-here"
+python backend/create_sample_data.py

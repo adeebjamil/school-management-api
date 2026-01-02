@@ -4,6 +4,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from .models import Tenant, TenantFeature
 from .serializers import TenantSerializer, TenantFeatureSerializer, CreateTenantSerializer
+from accounts.models import User
+from accounts.serializers import UserSerializer
 
 
 @api_view(['GET', 'POST'])
@@ -138,3 +140,21 @@ def get_tenant_by_school_code(request):
         })
     except Tenant.DoesNotExist:
         return Response({'error': 'Invalid school code'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def tenant_users(request, tenant_id):
+    """Get all users for a specific tenant (Super Admin only)"""
+    if request.user.role != 'super_admin':
+        return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        tenant = Tenant.objects.get(id=tenant_id)
+    except Tenant.DoesNotExist:
+        return Response({'error': 'Tenant not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Get all users for this tenant
+    users = User.objects.filter(tenant=tenant).order_by('-date_joined')
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data)
